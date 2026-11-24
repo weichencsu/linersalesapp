@@ -1,0 +1,35 @@
+# ============================================================
+# Render.com 部署蓝图 —— Mill Liners 客户总览应用
+# ------------------------------------------------------------
+# 用法：将本文件随代码一起推送到 GitHub 仓库根目录，然后在
+#       Render 控制台 New → Blueprint 选择该仓库，即可按本配置
+#       一键创建服务（无需在网页上逐项填写）。
+#
+# 费用说明（默认配置）：
+#   - plan: 0.5c-512mb 即 Starter 档，$7/月（持久磁盘要求付费实例）
+#   - disk: 1 GB 持久磁盘，$0.25/月（保存 SQLite 数据库，数据不丢失）
+#
+# 若想先免费试跑（数据每次重启会丢失，仅用于演示）：
+#   把 plan 改为 free，并删除整段 disk: 配置，同时删除
+#   DATABASE_URL 环境变量（改由应用回退到代码库内置数据库）。
+# ============================================================
+services:
+  - type: web
+    name: mill-liners-app
+    runtime: node
+    plan: 0.5c-512mb        # Starter 档：$7/月（挂载持久磁盘的最低档）
+    region: singapore        # Render 新加坡节点（大陆访问延迟最低）
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: node scripts/render-prepare-db.mjs && node .next/standalone/server.js
+    healthCheckPath: /api
+    disk:                   # 持久磁盘：数据库文件存放处，跨重启/部署保留
+      name: mill-liners-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_URL
+        value: file:/data/custom.db
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
