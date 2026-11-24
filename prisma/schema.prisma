@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 客户（矿山）信息 —— 对应 Excel Data Entry 表的客户维度
+model Customer {
+  id        Int      @id @default(autoincrement())
+  owner     String // 业主/公司，如 Zijin Mining
+  site      String @default("") // 矿山/项目名，如 Zijinshan
+  country   String // 国家，如 China
+  region    String @default("OTHER") // APAC | CIS | SAM | OTHER（按国家自动划分，可手动覆盖）
+  status    String @default("Potential Customer") // Current Customer | Potential Customer
+  reviewed  String @default("NO") // YES | NO
+  latitude  Float? // 纬度
+  longitude Float? // 经度
+  notes     String? // 备注
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  mills     Mill[]
+
+  @@unique([owner, site, country])
+}
+
+// 磨机信息 —— 对应 Excel Data Entry 表的磨机维度（一行一台磨机）
+model Mill {
+  id                       Int      @id @default(autoincrement())
+  customerId               Int
+  customer                 Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  equipment                String @default("") // 设备描述，如 30' x 16.5' SAG
+  millNumber               String? // 磨机编号，如 SAG 1
+  diameterLabel            String? // 直径原始文本，如 30'
+  diameterFt               Float? // 直径数值（英尺），用于筛选/统计
+  lengthLabel              String? // 长度原始文本，如 16.5'
+  millType                 String? // SAG | Ball | Vertical
+  linerType                String? // 衬板类型，如 Complete Set
+  linerSize                String? // 衬板规格，如 Large
+  material                 String? // 材质，如 Chrome-Moly
+  supplier                 String? // 竞争对手/供应商，如 Metso
+  linerMassPerSetKg        Float? // 单套衬板重量 KG
+  annualLinerConsumptionKg Float? // 年衬板消耗量 KG
+  sellPricePerKgUsd        Float? // 售价 $/KG USD
+  setPriceUsd              Float? // 单套价格 $
+  annualValueUsd           Float? // 年潜在销售总额 $
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([customerId])
+}
+
+// 用户账号 —— 用户名/密码访问控制（登录界面 + 用户管理）
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique // 登录名（统一小写存储，登录大小写不敏感）
+  passwordHash String // 格式 scrypt:N:r:p:salt:hash
+  displayName  String    @default("") // 显示名（如 Zhang San）
+  role         String    @default("USER") // ADMIN（完整权限，含客户管理与用户管理）| USER（只读浏览）
+  isActive     Boolean   @default(true) // 停用后无法登录
+  lastLoginAt  DateTime? // 最近一次成功登录时间
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// 应用设置（会话签名密钥等）
+model Setting {
+  key   String @id
+  value String
+}
